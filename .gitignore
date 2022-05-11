@@ -1,0 +1,6 @@
+checkpoint/
+.idea/
+7pgd/
+pics/
+*.pyc
+*.out
