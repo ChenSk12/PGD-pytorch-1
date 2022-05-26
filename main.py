@@ -34,13 +34,13 @@ transform_train = transforms.Compose([
 
 transform_test = transforms.Compose([
     transforms.ToTensor(),
-    # transforms.Normalize(cf.mean[args.dataset], cf.std[args.dataset]),
+    transforms.Normalize(cf.mean[args.dataset], cf.std[args.dataset]),
 ])
 start_epoch, num_epochs, batch_size, optim_type = cf.start_epoch, cf.num_epochs, cf.batch_size, cf.optim_type
 num_classes = 10
 
 
-def pgd_attack(model, images, labels, eps=0.3, alpha=2 / 255, iters=7):
+def pgd_attack(model, images, labels, eps=0.1, alpha=2 / 255, iters=10):
     images = images.to(device)
     labels = labels.to(device)
     loss = nn.CrossEntropyLoss()
@@ -75,7 +75,7 @@ def getNetwork(args):
         file_name = 'resnet-'+str(args.depth)
     elif (args.net_type == 'wide-resnet'):
         net = Wide_ResNet(args.depth, args.widen_factor, args.dropout, num_classes)
-        file_name = 'wide-resnet-34x107-PGD'
+        file_name = 'wide-resnet-34x10-20-PGD.t7'
     else:
         print('Error : Network should be either [LeNet / VGGNet / ResNet / Wide_ResNet')
         sys.exit(0)
@@ -84,7 +84,7 @@ def getNetwork(args):
 
 
 _, file_name = getNetwork(args)
-checkpoint = torch.load('./checkpoint/'+args.dataset+os.sep+file_name+'.t7')
+checkpoint = torch.load('./checkpoint/'+args.dataset+os.sep+file_name)
 model = checkpoint['net']
 images = torchvision.datasets.CIFAR10(root="../dataset", download=True, transform=transform_test, train=False)
 dataloader = torch.utils.data.DataLoader(images, batch_size=64, shuffle=False)
@@ -95,12 +95,12 @@ model.eval()
 correct = 0
 total = 0
 # tb = SummaryWriter('pics')
-nom = transforms.Normalize(cf.mean[args.dataset], cf.std[args.dataset])
+# nom = transforms.Normalize(cf.mean[args.dataset], cf.std[args.dataset])
 with torch.no_grad():
     for i, (images, labels) in enumerate(tqdm(dataloader)):
         images = images.to(device)
         labels = labels.to(device)
-        outputs = model(nom(images))
+        outputs = model(images)
         # img = torchvision.utils.make_grid(images)
         # tb.add_image("noPgd" + str(i), img)
 
@@ -115,7 +115,7 @@ print("Attack Image & Predicted Label")
 correct = 0
 total = 0
 for i, (images, labels) in enumerate(tqdm(dataloader)):
-    images = pgd_attack(model, nom(images), labels)
+    images = pgd_attack(model, images, labels)
     labels = labels.to(device)
     outputs = model(images)
     # img_grid = torchvision.utils.make_grid(images)

@@ -4,3 +4,8 @@ checkpoint/
 pics/
 *.pyc
 *.out
+pgd-cifar10/
+20pgd-cifar10/
+20pgd/
+pgd-pic/
+pgd-vit/

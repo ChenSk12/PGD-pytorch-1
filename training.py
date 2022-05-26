@@ -33,7 +33,7 @@ transform_test = transforms.Compose([
     transforms.Normalize(cf.mean[args.dataset], cf.std[args.dataset]),
 ])
 net = Wide_ResNet(args.depth, args.widen_factor, args.dropout, 10)
-file_name = 'wide-resnet-' + str(args.depth) + 'x' + str(args.widen_factor) + '7-PGD'
+file_name = 'wide-resnet-' + str(args.depth) + 'x' + str(args.widen_factor) + '-20-PGD'
 use_cuda = torch.cuda.is_available()
 best_acc = 0
 start_epoch, num_epochs, batch_size, optim_type = cf.start_epoch, cf.num_epochs, cf.batch_size, cf.optim_type
@@ -45,7 +45,7 @@ dataloader = torch.utils.data.DataLoader(images, batch_size=batch_size, shuffle=
 device = torch.device("cuda" if use_cuda else "cpu")
 
 
-def pgd_attack(model, images, labels, eps=0.3, alpha=2 / 255, iters=7):
+def pgd_attack(model, images, labels, eps=0.3, alpha=2 / 255, iters=10):
     images = images.to(device)
     labels = labels.to(device)
     loss = nn.CrossEntropyLoss()
@@ -110,37 +110,37 @@ def test(epoch):
     test_loss = 0
     correct = 0
     total = 0
-    with torch.no_grad():
-        for batch_idx, (inputs, targets) in enumerate(test_loader):
-            if use_cuda:
-                inputs, targets = inputs.cuda(), targets.cuda()
-            inputs, targets = Variable(inputs), Variable(targets)
-            outputs = net(inputs)
-            loss = criterion(outputs, targets)
+    for batch_idx, (inputs, targets) in enumerate(test_loader):
+        if use_cuda:
+            inputs, targets = inputs.cuda(), targets.cuda()
+        inputs = pgd_attack(net, inputs, targets)
+        inputs, targets = Variable(inputs), Variable(targets)
+        outputs = net(inputs)
+        loss = criterion(outputs, targets)
 
-            test_loss += loss.item()
-            _, predicted = torch.max(outputs.data, 1)
-            total += targets.size(0)
-            correct += predicted.eq(targets.data).cpu().sum()
+        test_loss += loss.item()
+        _, predicted = torch.max(outputs.data, 1)
+        total += targets.size(0)
+        correct += predicted.eq(targets.data).cpu().sum()
 
-        # Save checkpoint when best model
-        acc = 100. * correct / total
-        print("\n| Validation Epoch #%d\t\t\tLoss: %.4f Acc@1: %.2f%%" % (epoch, loss.item(), acc))
+    # Save checkpoint when best model
+    acc = 100. * correct / total
+    print("\n| Validation Epoch #%d\t\t\tLoss: %.4f Acc@1: %.2f%%" % (epoch, loss.item(), acc))
 
-        if acc > best_acc:
-            print('| Saving Best model...\t\t\tTop1 = %.2f%%' % (acc))
-            state = {
-                'net':net.module if use_cuda else net,
-                'acc': acc,
-                'epoch': epoch,
-            }
-            if not os.path.isdir('checkpoint'):
-                os.mkdir('checkpoint')
-            save_point = './checkpoint/' + 'cifar10' + os.sep
-            if not os.path.isdir(save_point):
-                os.mkdir(save_point)
-            torch.save(state, save_point + file_name + '.t7')
-            best_acc = acc
+    if acc > best_acc:
+        print('| Saving Best model...\t\t\tTop1 = %.2f%%' % (acc))
+        state = {
+            'net':net.module if use_cuda else net,
+            'acc': acc,
+            'epoch': epoch,
+        }
+        if not os.path.isdir('checkpoint'):
+            os.mkdir('checkpoint')
+        save_point = './checkpoint/' + 'cifar10' + os.sep
+        if not os.path.isdir(save_point):
+            os.mkdir(save_point)
+        torch.save(state, save_point + file_name + '.t7')
+        best_acc = acc
 
 
 if use_cuda:
@@ -148,8 +148,8 @@ if use_cuda:
     net = torch.nn.DataParallel(net, device_ids=range(torch.cuda.device_count()))
     cudnn.benchmark = True
 elapsed_time = 0
-tb = SummaryWriter('7pgd')
-for epoch in range(start_epoch, start_epoch + 2):
+tb = SummaryWriter('20pgd')
+for epoch in range(start_epoch, start_epoch + 100):
     start_time = time.time()
     train(epoch, tb)
     test(epoch)
