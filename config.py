@@ -1,8 +1,8 @@
 import math
 
 start_epoch = 1
-num_epochs = 200
-batch_size = 64
+num_epochs = 100
+batch_size = 16
 optim_type = 'SGD'
 
 mean = {
@@ -20,11 +20,11 @@ classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship'
 
 def learning_rate(init, epoch):
     optim_factor = 0
-    if(epoch > 160):
+    if(epoch > 90):
         optim_factor = 3
-    elif(epoch > 120):
-        optim_factor = 2
     elif(epoch > 60):
+        optim_factor = 2
+    elif(epoch > 30):
         optim_factor = 1
 
     return init*math.pow(0.2, optim_factor)

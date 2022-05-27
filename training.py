@@ -1,5 +1,8 @@
 import argparse
+import collections
 import os
+
+import torch
 import torch.utils.data as Data
 
 import torchvision.utils
@@ -10,30 +13,35 @@ import torchvision.transforms as transforms
 import config as cf
 import time
 from networks import *
+from pytorch_pretrained_vit import ViT
 from tqdm import tqdm
 
 parser = argparse.ArgumentParser(description='PGD-Training')
-parser.add_argument('--lr', default=0.1, type=float, help='learning_rate')
+parser.add_argument('--lr', default=0.0001, type=float, help='learning_rate')
 parser.add_argument('--net_type', default='wide-resnet', type=str, help='model')
 parser.add_argument('--depth', default=34, type=int, help='depth of model')
 parser.add_argument('--widen_factor', default=10, type=int, help='width of model')
 parser.add_argument('--dropout', default=0.3, type=float, help='dropout_rate')
 parser.add_argument('--dataset', default='cifar10', type=str, help='dataset = [cifar10/cifar100]')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
+parser.add_argument('--patch', default=16, type=int)
 args = parser.parse_args()
 
 transform_train = transforms.Compose([
     transforms.RandomCrop(32, padding=4),
+    transforms.Resize(224),
     transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
     transforms.Normalize(cf.mean[args.dataset], cf.std[args.dataset]),
 ])
 transform_test = transforms.Compose([
+    transforms.Resize(224),
     transforms.ToTensor(),
     transforms.Normalize(cf.mean[args.dataset], cf.std[args.dataset]),
 ])
-net = Wide_ResNet(args.depth, args.widen_factor, args.dropout, 10)
-file_name = 'wide-resnet-' + str(args.depth) + 'x' + str(args.widen_factor) + '-20-PGD'
+
+net = ViT('B_16_imagenet1k', pretrained=True, image_size=224, num_classes=10)
+file_name = 'vit-' + str(args.patch)
 use_cuda = torch.cuda.is_available()
 best_acc = 0
 start_epoch, num_epochs, batch_size, optim_type = cf.start_epoch, cf.num_epochs, cf.batch_size, cf.optim_type
@@ -82,7 +90,7 @@ def train(epoch, tb):
         if use_cuda:
             inputs, targets = inputs.cuda(), targets.cuda()  # GPU settings
         optimizer.zero_grad()
-        inputs = pgd_attack(net, inputs, targets)
+        # inputs = pgd_attack(net, inputs, targets)
         inputs, targets = Variable(inputs), Variable(targets)
         outputs = net(inputs)  # Forward Propagation
         loss = criterion(outputs, targets)  # Loss
@@ -110,18 +118,19 @@ def test(epoch):
     test_loss = 0
     correct = 0
     total = 0
-    for batch_idx, (inputs, targets) in enumerate(test_loader):
-        if use_cuda:
-            inputs, targets = inputs.cuda(), targets.cuda()
-        inputs = pgd_attack(net, inputs, targets)
-        inputs, targets = Variable(inputs), Variable(targets)
-        outputs = net(inputs)
-        loss = criterion(outputs, targets)
+    with torch.no_grad():
+        for batch_idx, (inputs, targets) in enumerate(test_loader):
+            if use_cuda:
+                inputs, targets = inputs.cuda(), targets.cuda()
+            # inputs = pgd_attack(net, inputs, targets)
+            inputs, targets = Variable(inputs), Variable(targets)
+            outputs = net(inputs)
+            loss = criterion(outputs, targets)
 
-        test_loss += loss.item()
-        _, predicted = torch.max(outputs.data, 1)
-        total += targets.size(0)
-        correct += predicted.eq(targets.data).cpu().sum()
+            test_loss += loss.item()
+            _, predicted = torch.max(outputs.data, 1)
+            total += targets.size(0)
+            correct += predicted.eq(targets.data).cpu().sum()
 
     # Save checkpoint when best model
     acc = 100. * correct / total
@@ -148,7 +157,7 @@ if use_cuda:
     net = torch.nn.DataParallel(net, device_ids=range(torch.cuda.device_count()))
     cudnn.benchmark = True
 elapsed_time = 0
-tb = SummaryWriter('20pgd')
+tb = SummaryWriter('vit-16')
 for epoch in range(start_epoch, start_epoch + 100):
     start_time = time.time()
     train(epoch, tb)

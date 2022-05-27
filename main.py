@@ -1,4 +1,5 @@
 import argparse
+import collections
 import os
 import torch.utils.data as Data
 
@@ -8,7 +9,7 @@ import torchvision.transforms as transforms
 import config as cf
 from networks import *
 from tqdm import tqdm
-
+from pytorch_pretrained_vit import ViT
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR-10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning_rate')
@@ -27,12 +28,14 @@ device = torch.device("cuda" if use_cuda else "cpu")
 
 transform_train = transforms.Compose([
     transforms.RandomCrop(32, padding=4),
+    transforms.Resize(224),
     transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
     transforms.Normalize(cf.mean[args.dataset], cf.std[args.dataset]),
 ]) # meanstd transformation
 
 transform_test = transforms.Compose([
+    transforms.Resize(224),
     transforms.ToTensor(),
     transforms.Normalize(cf.mean[args.dataset], cf.std[args.dataset]),
 ])
@@ -84,18 +87,26 @@ def getNetwork(args):
 
 
 _, file_name = getNetwork(args)
-checkpoint = torch.load('./checkpoint/'+args.dataset+os.sep+file_name)
-model = checkpoint['net']
+# checkpoint = torch.load('./checkpoint/'+args.dataset+os.sep+file_name)
+checkpoint = torch.load('./checkpoint/vit/vit-16-ckpt.t7')
+state_dict = checkpoint['model']
+new_state_dict = collections.OrderedDict()
+for k, v in state_dict.items():
+    name = k[7:]  # remove "module."
+    new_state_dict[name] = v
+model = ViT('B_16_imagenet1k', image_size=224, num_classes=10)
+model.load_state_dict(new_state_dict)
+
 images = torchvision.datasets.CIFAR10(root="../dataset", download=True, transform=transform_test, train=False)
 dataloader = torch.utils.data.DataLoader(images, batch_size=64, shuffle=False)
-
+model.to(device)
 model.training = False
 model.eval()
 
 correct = 0
 total = 0
 # tb = SummaryWriter('pics')
-# nom = transforms.Normalize(cf.mean[args.dataset], cf.std[args.dataset])
+nom = transforms.Normalize(cf.mean[args.dataset], cf.std[args.dataset])
 with torch.no_grad():
     for i, (images, labels) in enumerate(tqdm(dataloader)):
         images = images.to(device)
@@ -108,24 +119,23 @@ with torch.no_grad():
         total += images.size(0)
         correct += (pre == labels).sum()
 
-print('Accuracy of test text: %f %%' % (100 * float(correct) / total))
+print('Accuracy of  clean: %f %%' % (100 * float(correct) / total))
 
-print("Attack Image & Predicted Label")
 
 correct = 0
 total = 0
-for i, (images, labels) in enumerate(tqdm(dataloader)):
-    images = pgd_attack(model, images, labels)
-    labels = labels.to(device)
-    outputs = model(images)
-    # img_grid = torchvision.utils.make_grid(images)
-    # tb.add_image("Pgd" + str(i), img_grid)
-
-    _, pre = torch.max(outputs.data, 1)
-    total += images.size(0)
-    correct += (pre == labels).sum()
-# tb.close()
-print('Accuracy of test text: %f %%' % (100 * float(correct) / total))
+# for i, (images, labels) in enumerate(tqdm(dataloader)):
+#     images = pgd_attack(model, images, labels)
+#     labels = labels.to(device)
+#     outputs = model(images)
+#     # img_grid = torchvision.utils.make_grid(images)
+#     # tb.add_image("Pgd" + str(i), img_grid)
+#
+#     _, pre = torch.max(outputs.data, 1)
+#     total += images.size(0)
+#     correct += (pre == labels).sum()
+# # tb.close()
+# print('Accuracy of test text: %f %%' % (100 * float(correct) / total))
 
 
 

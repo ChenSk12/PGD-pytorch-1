@@ -214,8 +214,10 @@ class VisionTransformer(nn.Module):
 
 
 if __name__ == '__main__':
-    net = torch.load('../checkpoint/vit/ViT-b-16.pth')
-    print(net)
+    model = VisionTransformer()
+    x = torch.randn([2, 3, 224, 224])
+    output = model(x)
+
 
 
 
