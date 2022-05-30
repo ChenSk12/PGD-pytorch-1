@@ -88,14 +88,8 @@ def getNetwork(args):
 
 _, file_name = getNetwork(args)
 # checkpoint = torch.load('./checkpoint/'+args.dataset+os.sep+file_name)
-checkpoint = torch.load('./checkpoint/vit/vit-16-ckpt.t7')
-state_dict = checkpoint['model']
-new_state_dict = collections.OrderedDict()
-for k, v in state_dict.items():
-    name = k[7:]  # remove "module."
-    new_state_dict[name] = v
-model = ViT('B_16_imagenet1k', image_size=224, num_classes=10)
-model.load_state_dict(new_state_dict)
+checkpoint = torch.load('./checkpoint/cifar10/vit-16.t7')
+model = checkpoint['net']
 
 images = torchvision.datasets.CIFAR10(root="../dataset", download=True, transform=transform_test, train=False)
 dataloader = torch.utils.data.DataLoader(images, batch_size=64, shuffle=False)
