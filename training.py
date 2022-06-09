@@ -45,7 +45,7 @@ transform_test = transforms.Compose([
 # net = ViT('B_16_imagenet1k', pretrained=True, image_size=224, num_classes=10)
 # net = Wide_ResNet(args.depth, args.widen_factor, args.dropout, 10)
 net = Wide_ResNet_Edge(args.depth, args.widen_factor, args.dropout, 10)
-file_name = 'wide-resnet-34x10-edge'
+file_name = 'wide-resnet-edge-layer3-34x10'
 
 use_cuda = torch.cuda.is_available()
 best_acc = 0
@@ -59,7 +59,7 @@ device = torch.device("cuda" if use_cuda else "cpu")
 canny_operator = CannyNet(threshold=1.8, use_cuda=True, requires_grad=False)
 canny_operator.to(device)
 
-def pgd_attack(model, images, labels, eps=0.3, alpha=2 / 255, iters=10):
+def pgd_attack(model, images, labels, eps=0.1, alpha=2 / 255, iters=10):
     images = images.to(device)
     labels = labels.to(device)
     loss = nn.CrossEntropyLoss()
@@ -97,9 +97,9 @@ def train(epoch, tb):
             inputs, targets = inputs.cuda(), targets.cuda()  # GPU settings
         optimizer.zero_grad()
         inputs = pgd_attack(net, inputs, targets)
-        edge = canny_operator(inputs)
+        # edge = canny_operator(inputs)
         inputs, targets = Variable(inputs), Variable(targets)
-        outputs = net(torch.add(inputs, edge))  # Forward Propagation
+        outputs = net(inputs)  # Forward Propagation
         loss = criterion(outputs, targets)  # Loss
         loss.backward()  # Backward Propagation
         optimizer.step()  # Optimizer update
@@ -163,7 +163,7 @@ if use_cuda:
     net = torch.nn.DataParallel(net, device_ids=range(torch.cuda.device_count()))
     cudnn.benchmark = True
 elapsed_time = 0
-tb = SummaryWriter('wrn-edge')
+tb = SummaryWriter('wrn-edge-pgd10')
 for epoch in range(start_epoch, start_epoch + 100):
     start_time = time.time()
     train(epoch, tb)
