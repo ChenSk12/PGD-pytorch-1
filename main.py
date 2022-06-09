@@ -4,9 +4,11 @@ import os
 import torch.utils.data as Data
 
 import torchvision.utils
+from torch.backends import cudnn
 from torch.utils.tensorboard import SummaryWriter
 import torchvision.transforms as transforms
 import config as cf
+from canny_net import CannyNet
 from networks import *
 from tqdm import tqdm
 from pytorch_pretrained_vit import ViT
@@ -28,14 +30,14 @@ device = torch.device("cuda" if use_cuda else "cpu")
 
 transform_train = transforms.Compose([
     transforms.RandomCrop(32, padding=4),
-    transforms.Resize(224),
+    # transforms.Resize(224),
     transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
     transforms.Normalize(cf.mean[args.dataset], cf.std[args.dataset]),
 ]) # meanstd transformation
 
 transform_test = transforms.Compose([
-    transforms.Resize(224),
+    # transforms.Resize(224),
     transforms.ToTensor(),
     transforms.Normalize(cf.mean[args.dataset], cf.std[args.dataset]),
 ])
@@ -88,8 +90,11 @@ def getNetwork(args):
 
 _, file_name = getNetwork(args)
 # checkpoint = torch.load('./checkpoint/'+args.dataset+os.sep+file_name)
-checkpoint = torch.load('./checkpoint/cifar10/vit-16.t7')
+# checkpoint = torch.load('./checkpoint/cifar10/vit-16-pretrained.t7')
+checkpoint = torch.load('./checkpoint/cifar10/wide-resnet-34x10.t7')
+# checkpoint = torch.load('./checkpoint/cifar10/deit-16-pretrained.t7')
 model = checkpoint['net']
+
 
 images = torchvision.datasets.CIFAR10(root="../dataset", download=True, transform=transform_test, train=False)
 dataloader = torch.utils.data.DataLoader(images, batch_size=64, shuffle=False)
@@ -118,18 +123,23 @@ print('Accuracy of  clean: %f %%' % (100 * float(correct) / total))
 
 correct = 0
 total = 0
-# for i, (images, labels) in enumerate(tqdm(dataloader)):
-#     images = pgd_attack(model, images, labels)
-#     labels = labels.to(device)
-#     outputs = model(images)
-#     # img_grid = torchvision.utils.make_grid(images)
-#     # tb.add_image("Pgd" + str(i), img_grid)
-#
-#     _, pre = torch.max(outputs.data, 1)
-#     total += images.size(0)
-#     correct += (pre == labels).sum()
-# # tb.close()
-# print('Accuracy of test text: %f %%' % (100 * float(correct) / total))
+canny_operator = CannyNet(threshold=1.8, use_cuda=True, requires_grad=False)
+canny_operator.to(device)
+for i, (images, labels) in enumerate(tqdm(dataloader)):
+    images = images.to(device)
+    # edge = canny_operator(images)
+    images = pgd_attack(model, images, labels)
+    labels = labels.to(device)
+    # imgs = images + edge
+    outputs = model(images)
+    # img_grid = torchvision.utils.make_grid(images)
+    # tb.add_image("Pgd" + str(i), img_grid)
+
+    _, pre = torch.max(outputs.data, 1)
+    total += images.size(0)
+    correct += (pre == labels).sum()
+# tb.close()
+print('Accuracy of attack text: %f %%' % (100 * float(correct) / total))
 
 
 

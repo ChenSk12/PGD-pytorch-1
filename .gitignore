@@ -9,3 +9,5 @@ pgd-cifar10/
 20pgd/
 pgd-pic/
 pgd-vit/
+*.0
+*.jpg

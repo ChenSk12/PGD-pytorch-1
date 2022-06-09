@@ -10,7 +10,7 @@ from torchvision import models
 import torchvision.datasets as dsets
 import torchvision.transforms as transforms
 from tqdm import tqdm
-
+from canny_net import CannyNet
 from networks.ViT import VisionTransformer
 
 use_cuda = True
@@ -73,7 +73,7 @@ cifar10_data = torchvision.datasets.CIFAR10(
     root="D:/github/clone/dataset", train=False, transform=transform, download=True
 )
 # normal_data = image_folder_custom_label(root='./data/imagenet', transform=transform, custom_label=idx2label)
-normal_loader = Data.DataLoader(cifar10_data, batch_size=8, shuffle=True)
+normal_loader = Data.DataLoader(cifar10_data, batch_size=1, shuffle=True)
 
 # model = models.inception_v3(pretrained=True).to(device)
 model = VisionTransformer()
@@ -86,21 +86,25 @@ correcta = 0
 total = 0
 # tb = SummaryWriter('pgd-vit')
 tqdm_object = tqdm(normal_loader)
+canny_operator = CannyNet(threshold=1.8, use_cuda=True, requires_grad=False)
+canny_operator.to(device)
 for i, (images, labels) in enumerate(tqdm_object):
     images = images.to(device)
     labels = labels.to(device)
     # outputsc = model(images)
     # _, prec = torch.max(outputsc.data, 1)
     # correctc += (prec == labels).sum()
-    img = pgd_attack(model, images, labels, iters=7)
-    outputsa = model(img)
-    _, prea = torch.max(outputsa.data, 1)
-    correcta += (prea == labels).sum()
-    total += labels.size(0)
+    img = pgd_attack(model, images, labels, iters=20)
+    # img = canny_operator(images)
+    # outputsa = model(img)
+    # _, prea = torch.max(outputsa.data, 1)
+    # correcta += (prea == labels).sum()
+    # total += labels.size(0)
     # img_grid = torchvision.utils.make_grid(img)
-    # torchvision.utils.save_image(img, './20pgd-cifar10/' + str(i) + '.jpg')
+    torchvision.utils.save_image(images, './0cifar10/' + str(i) + '.jpg')
+    torchvision.utils.save_image(img, './0cifar10/' + str(i) + 'pgd.jpg')
     # tb.add_images("10-Pgd" + str(i), img)
-    tqdm_object.set_postfix(attackacc=(100 * float(correcta) / total))
+    # tqdm_object.set_postfix(attackacc=(100 * float(correcta) / total))
 # print('Accuracy of clean  : %f %%' % (100 * float(correctc) / total))
-print('Accuracy of attack : %f %%' % (100 * float(correcta) / total))
+# print('Accuracy of attack : %f %%' % (100 * float(correcta) / total))
 # tb.close()

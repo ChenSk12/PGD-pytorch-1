@@ -6,18 +6,20 @@ import torch
 import torch.utils.data as Data
 
 import torchvision.utils
+from pytorch_pretrained_vit import ViT
 from torch import optim
 from torch.backends import cudnn
 from torch.utils.tensorboard import SummaryWriter
 import torchvision.transforms as transforms
 import config as cf
 import time
+
+from canny_net import CannyNet
 from networks import *
-from pytorch_pretrained_vit import ViT
 from tqdm import tqdm
 
 parser = argparse.ArgumentParser(description='PGD-Training')
-parser.add_argument('--lr', default=0.0001, type=float, help='learning_rate')
+parser.add_argument('--lr', default=0.01, type=float, help='learning_rate')
 parser.add_argument('--net_type', default='wide-resnet', type=str, help='model')
 parser.add_argument('--depth', default=34, type=int, help='depth of model')
 parser.add_argument('--widen_factor', default=10, type=int, help='width of model')
@@ -29,19 +31,21 @@ args = parser.parse_args()
 
 transform_train = transforms.Compose([
     transforms.RandomCrop(32, padding=4),
-    transforms.Resize(224),
+    # transforms.Resize(224),
     transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
-    transforms.Normalize(cf.mean[args.dataset], cf.std[args.dataset]),
+    # transforms.Normalize(cf.mean[args.dataset], cf.std[args.dataset]),
 ])
 transform_test = transforms.Compose([
-    transforms.Resize(224),
+    # transforms.Resize(224),
     transforms.ToTensor(),
-    transforms.Normalize(cf.mean[args.dataset], cf.std[args.dataset]),
+    # transforms.Normalize(cf.mean[args.dataset], cf.std[args.dataset]),
 ])
+# net = torch.hub.load('facebookresearch/deit:main', 'deit_base_patch16_224', pretrained=True)
+# net = ViT('B_16_imagenet1k', pretrained=True, image_size=224, num_classes=10)
+net = Wide_ResNet(args.depth, args.widen_factor, args.dropout, 10)
+file_name = 'wide-resnet-34x10-edge'
 
-net = ViT('B_16_imagenet1k', pretrained=True, image_size=224, num_classes=10)
-file_name = 'vit-' + str(args.patch)
 use_cuda = torch.cuda.is_available()
 best_acc = 0
 start_epoch, num_epochs, batch_size, optim_type = cf.start_epoch, cf.num_epochs, cf.batch_size, cf.optim_type
@@ -51,7 +55,8 @@ test_image = torchvision.datasets.CIFAR10(root="../dataset", download=True, tran
 test_loader = torch.utils.data.DataLoader(test_image, batch_size=batch_size, shuffle=False)
 dataloader = torch.utils.data.DataLoader(images, batch_size=batch_size, shuffle=True)
 device = torch.device("cuda" if use_cuda else "cpu")
-
+canny_operator = CannyNet(threshold=1.8, use_cuda=True, requires_grad=False)
+canny_operator.to(device)
 
 def pgd_attack(model, images, labels, eps=0.3, alpha=2 / 255, iters=10):
     images = images.to(device)
@@ -85,14 +90,15 @@ def train(epoch, tb):
     total = 0
     optimizer = optim.SGD(net.parameters(), lr=cf.learning_rate(args.lr, epoch), momentum=0.9, weight_decay=5e-4)
 
-    print('\n=> Training Epoch #%d, LR=%.4f' % (epoch, cf.learning_rate(args.lr, epoch)))
+    print('\n=> Training Epoch #%d, LR=%.6f' % (epoch, cf.learning_rate(args.lr, epoch)))
     for batch_idx, (inputs, targets) in enumerate(dataloader):
         if use_cuda:
             inputs, targets = inputs.cuda(), targets.cuda()  # GPU settings
         optimizer.zero_grad()
-        # inputs = pgd_attack(net, inputs, targets)
+        inputs = pgd_attack(net, inputs, targets)
+        edge = canny_operator(inputs)
         inputs, targets = Variable(inputs), Variable(targets)
-        outputs = net(inputs)  # Forward Propagation
+        outputs = net(torch.add(inputs, edge))  # Forward Propagation
         loss = criterion(outputs, targets)  # Loss
         loss.backward()  # Backward Propagation
         optimizer.step()  # Optimizer update
@@ -118,19 +124,18 @@ def test(epoch):
     test_loss = 0
     correct = 0
     total = 0
-    with torch.no_grad():
-        for batch_idx, (inputs, targets) in enumerate(test_loader):
-            if use_cuda:
-                inputs, targets = inputs.cuda(), targets.cuda()
-            # inputs = pgd_attack(net, inputs, targets)
-            inputs, targets = Variable(inputs), Variable(targets)
-            outputs = net(inputs)
-            loss = criterion(outputs, targets)
+    for batch_idx, (inputs, targets) in enumerate(test_loader):
+        if use_cuda:
+            inputs, targets = inputs.cuda(), targets.cuda()
+        inputs = pgd_attack(net, inputs, targets)
+        inputs, targets = Variable(inputs), Variable(targets)
+        outputs = net(inputs)
+        loss = criterion(outputs, targets)
 
-            test_loss += loss.item()
-            _, predicted = torch.max(outputs.data, 1)
-            total += targets.size(0)
-            correct += predicted.eq(targets.data).cpu().sum()
+        test_loss += loss.item()
+        _, predicted = torch.max(outputs.data, 1)
+        total += targets.size(0)
+        correct += predicted.eq(targets.data).cpu().sum()
 
     # Save checkpoint when best model
     acc = 100. * correct / total
@@ -157,7 +162,7 @@ if use_cuda:
     net = torch.nn.DataParallel(net, device_ids=range(torch.cuda.device_count()))
     cudnn.benchmark = True
 elapsed_time = 0
-tb = SummaryWriter('vit-16')
+tb = SummaryWriter('wrn-edge')
 for epoch in range(start_epoch, start_epoch + 100):
     start_time = time.time()
     train(epoch, tb)
