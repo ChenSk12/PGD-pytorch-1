@@ -43,7 +43,8 @@ transform_test = transforms.Compose([
 ])
 # net = torch.hub.load('facebookresearch/deit:main', 'deit_base_patch16_224', pretrained=True)
 # net = ViT('B_16_imagenet1k', pretrained=True, image_size=224, num_classes=10)
-net = Wide_ResNet(args.depth, args.widen_factor, args.dropout, 10)
+# net = Wide_ResNet(args.depth, args.widen_factor, args.dropout, 10)
+net = Wide_ResNet_Edge(args.depth, args.widen_factor, args.dropout, 10)
 file_name = 'wide-resnet-34x10-edge'
 
 use_cuda = torch.cuda.is_available()
