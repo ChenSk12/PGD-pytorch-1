@@ -49,6 +49,7 @@ class Wide_ResNet_Edge(nn.Module):
     def __init__(self, depth, widen_factor, dropout_rate, num_classes):
         super(Wide_ResNet_Edge, self).__init__()
         self.in_planes = 16
+        self.edge_planes = 16
 
         assert ((depth - 4) % 6 == 0), 'Wide-resnet depth should be 6n+4'
         n = (depth - 4) / 6
@@ -60,19 +61,24 @@ class Wide_ResNet_Edge(nn.Module):
         self.conv1 = conv3x3(3, nStages[0])
         self.conv2 = conv3x3(1, nStages[0])
         self.layer1 = self._wide_layer(wide_basic, nStages[1], n, dropout_rate, stride=1)
+        self.layer1_edge = self._wide_layer(wide_basic, nStages[1], n, dropout_rate, stride=1, is_edge=True)
         self.layer2 = self._wide_layer(wide_basic, nStages[2], n, dropout_rate, stride=2)
+        self.layer2_edge = self._wide_layer(wide_basic, nStages[2], n, dropout_rate, stride=2, is_edge=True)
         self.layer3 = self._wide_layer(wide_basic, nStages[3], n, dropout_rate, stride=2)
         self.bn1 = nn.BatchNorm2d(nStages[3], momentum=0.9)
         self.linear = nn.Linear(nStages[3], num_classes)
 
-    def _wide_layer(self, block, planes, num_blocks, dropout_rate, stride):
+    def _wide_layer(self, block, planes, num_blocks, dropout_rate, stride, is_edge=False):
         strides = [stride] + [1] * (int(num_blocks) - 1)
         layers = []
-
-        for stride in strides:
-            layers.append(block(self.in_planes, planes, dropout_rate, stride))
-            self.in_planes = planes
-
+        if is_edge:
+            for stride in strides:
+                layers.append(block(self.edge_planes, planes, dropout_rate, stride))
+                self.edge_planes = planes
+        else:
+            for stride in strides:
+                layers.append(block(self.in_planes, planes, dropout_rate, stride))
+                self.in_planes = planes
         return nn.Sequential(*layers)
 
     def forward(self, x):
@@ -81,13 +87,13 @@ class Wide_ResNet_Edge(nn.Module):
         edge_out = self.conv2(edge)
         out = self.conv1(x)
 
-        edge_out = self.layer1(edge_out)
+        edge_out = self.layer1_edge(edge_out)
         out = self.layer1(out)
 
+        edge_out = self.layer2_edge(edge_out)
         out = self.layer2(out)
-        edge_out = self.layer2(edge_out)
 
-        out = self.layer3(out+0.5*edge_out)
+        out = self.layer3(out + 0.5 * edge_out)
 
         out = F.relu(self.bn1(out))
         out = F.avg_pool2d(out, 8)
@@ -95,3 +101,12 @@ class Wide_ResNet_Edge(nn.Module):
         out = self.linear(out)
 
         return out
+
+
+if __name__ == '__main__':
+    use_cuda = True
+    device = torch.device("cuda" if use_cuda else "cpu")
+    x = torch.randn(1, 3, 32, 32)
+    net = Wide_ResNet_Edge(34, 10, 0.1, 10)
+    net.to(device)
+    output = net(x.to(device))
