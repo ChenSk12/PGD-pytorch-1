@@ -58,6 +58,7 @@ class Wide_ResNet_Edge(nn.Module):
         nStages = [16, 16 * k, 32 * k, 64 * k]
         self.canny = CannyNet(threshold=1.8, use_cuda=True, requires_grad=False)
         self.conv1 = conv3x3(3, nStages[0])
+        self.conv2 = conv3x3(1, nStages[0])
         self.layer1 = self._wide_layer(wide_basic, nStages[1], n, dropout_rate, stride=1)
         self.layer2 = self._wide_layer(wide_basic, nStages[2], n, dropout_rate, stride=2)
         self.layer3 = self._wide_layer(wide_basic, nStages[3], n, dropout_rate, stride=2)
@@ -77,7 +78,7 @@ class Wide_ResNet_Edge(nn.Module):
     def forward(self, x):
         edge = self.canny(x)
 
-        edge_out = self.conv1(edge)
+        edge_out = self.conv2(edge)
         out = self.conv1(x)
 
         edge_out = self.layer1(edge_out)
