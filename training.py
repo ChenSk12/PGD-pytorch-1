@@ -49,11 +49,12 @@ file_name = 'wide-resnet-edge-layer3-34x10'
 
 use_cuda = torch.cuda.is_available()
 best_acc = 0
-start_epoch, num_epochs, batch_size, optim_type = cf.start_epoch, cf.num_epochs, cf.batch_size, cf.optim_type
+start_epoch, num_epochs, batch_size, optim_type, batch_size_train = cf.start_epoch, \
+                cf.num_epochs, cf.batch_size, cf.optim_type, cf.batch_size_train
 criterion = nn.CrossEntropyLoss()
 images = torchvision.datasets.CIFAR10(root="../dataset", download=True, transform=transform_train, train=True)
 test_image = torchvision.datasets.CIFAR10(root="../dataset", download=True, transform=transform_test, train=False)
-test_loader = torch.utils.data.DataLoader(test_image, batch_size=batch_size, shuffle=False)
+test_loader = torch.utils.data.DataLoader(test_image, batch_size=batch_size_train, shuffle=False)
 dataloader = torch.utils.data.DataLoader(images, batch_size=batch_size, shuffle=True)
 device = torch.device("cuda" if use_cuda else "cpu")
 canny_operator = CannyNet(threshold=1.8, use_cuda=True, requires_grad=False)
@@ -112,7 +113,7 @@ def train(epoch, tb):
         sys.stdout.write('\r')
         sys.stdout.write('| Epoch [%3d/%3d] Iter[%3d/%3d]\t\tLoss: %.4f Acc@1: %.3f%%'
                          % (epoch, num_epochs, batch_idx + 1,
-                            (len(images) // batch_size) + 1, loss.item(), 100. * correct / total))
+                            (len(images) // batch_size_train) + 1, loss.item(), 100. * correct / total))
         sys.stdout.flush()
     tb.add_scalar("Loss", train_loss, epoch)
     tb.add_scalar("Accuracy", correct / len(images), epoch)
