@@ -19,7 +19,7 @@ from networks import *
 from tqdm import tqdm
 
 parser = argparse.ArgumentParser(description='PGD-Training')
-parser.add_argument('--lr', default=0.01, type=float, help='learning_rate')
+parser.add_argument('--lr', default=0.1, type=float, help='learning_rate')
 parser.add_argument('--net_type', default='wide-resnet', type=str, help='model')
 parser.add_argument('--depth', default=34, type=int, help='depth of model')
 parser.add_argument('--widen_factor', default=10, type=int, help='width of model')
@@ -60,7 +60,7 @@ device = torch.device("cuda" if use_cuda else "cpu")
 canny_operator = CannyNet(threshold=1.8, use_cuda=True, requires_grad=False)
 canny_operator.to(device)
 
-def pgd_attack(model, images, labels, eps=0.1, alpha=2 / 255, iters=10):
+def pgd_attack(model, images, labels, eps=8 /255, alpha=2 / 255, iters=10):
     images = images.to(device)
     labels = labels.to(device)
     loss = nn.CrossEntropyLoss()
@@ -165,7 +165,7 @@ if use_cuda:
     cudnn.benchmark = True
 elapsed_time = 0
 tb = SummaryWriter('wrn-edge-pgd10')
-for epoch in range(start_epoch, start_epoch + 100):
+for epoch in range(start_epoch, start_epoch + 50):
     start_time = time.time()
     train(epoch, tb)
     test(epoch)

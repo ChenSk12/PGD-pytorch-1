@@ -45,7 +45,7 @@ start_epoch, num_epochs, batch_size, optim_type = cf.start_epoch, cf.num_epochs,
 num_classes = 10
 
 
-def pgd_attack(model, images, labels, eps=0.1, alpha=2 / 255, iters=10):
+def pgd_attack(model, images, labels, eps=8 / 255, alpha=2 / 255, iters=10):
     images = images.to(device)
     labels = labels.to(device)
     loss = nn.CrossEntropyLoss()
@@ -91,7 +91,7 @@ def getNetwork(args):
 _, file_name = getNetwork(args)
 # checkpoint = torch.load('./checkpoint/'+args.dataset+os.sep+file_name)
 # checkpoint = torch.load('./checkpoint/cifar10/vit-16-pretrained.t7')
-checkpoint = torch.load('./checkpoint/cifar10/wide-resnet-34x10.t7')
+checkpoint = torch.load('./checkpoint/cifar10/wide-resnet-edge-layer3-34x10.t7')
 # checkpoint = torch.load('./checkpoint/cifar10/deit-16-pretrained.t7')
 model = checkpoint['net']
 

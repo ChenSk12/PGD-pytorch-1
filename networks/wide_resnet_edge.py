@@ -63,7 +63,7 @@ class Wide_ResNet_Edge(nn.Module):
         self.layer1 = self._wide_layer(wide_basic, nStages[1], n, dropout_rate, stride=1)
         self.layer1_edge = self._wide_layer(wide_basic, nStages[1], n, dropout_rate, stride=1, is_edge=True)
         self.layer2 = self._wide_layer(wide_basic, nStages[2], n, dropout_rate, stride=2)
-        self.layer2_edge = self._wide_layer(wide_basic, nStages[2], n, dropout_rate, stride=2, is_edge=True)
+        # self.layer2_edge = self._wide_layer(wide_basic, nStages[2], n, dropout_rate, stride=2, is_edge=True)
         self.layer3 = self._wide_layer(wide_basic, nStages[3], n, dropout_rate, stride=2)
         self.bn1 = nn.BatchNorm2d(nStages[3], momentum=0.9)
         self.linear = nn.Linear(nStages[3], num_classes)
@@ -90,10 +90,9 @@ class Wide_ResNet_Edge(nn.Module):
         edge_out = self.layer1_edge(edge_out)
         out = self.layer1(out)
 
-        edge_out = self.layer2_edge(edge_out)
-        out = self.layer2(out)
+        out = self.layer2(out + 0.5 * edge_out)
 
-        out = self.layer3(out + 0.5 * edge_out)
+        out = self.layer3(out)
 
         out = F.relu(self.bn1(out))
         out = F.avg_pool2d(out, 8)
