@@ -25,7 +25,7 @@ def learning_rate(init, epoch):
         optim_factor = 3
     elif(epoch > 70):
         optim_factor = 2
-    elif(epoch > 40):
+    elif(epoch > 50):
         optim_factor = 1
 
     return init*math.pow(0.2, optim_factor)

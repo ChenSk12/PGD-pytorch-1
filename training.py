@@ -45,12 +45,12 @@ transform_test = transforms.Compose([
 # net = ViT('B_16_imagenet1k', pretrained=True, image_size=224, num_classes=10)
 # net = Wide_ResNet(args.depth, args.widen_factor, args.dropout, 10)
 net = Wide_ResNet_Edge(args.depth, args.widen_factor, args.dropout, 10)
-file_name = 'wide-resnet-edge-layer3-34x10'
+file_name = 'wide-resnet-edge-layer2-34x10'
 
 use_cuda = torch.cuda.is_available()
 best_acc = 0
 start_epoch, num_epochs, batch_size, optim_type, batch_size_train = cf.start_epoch, \
-                cf.num_epochs, cf.batch_size, cf.optim_type, cf.batch_size_train
+                                                                    cf.num_epochs, cf.batch_size, cf.optim_type, cf.batch_size_train
 criterion = nn.CrossEntropyLoss()
 images = torchvision.datasets.CIFAR10(root="../dataset", download=True, transform=transform_train, train=True)
 test_image = torchvision.datasets.CIFAR10(root="../dataset", download=True, transform=transform_test, train=False)
@@ -60,7 +60,8 @@ device = torch.device("cuda" if use_cuda else "cpu")
 canny_operator = CannyNet(threshold=1.8, use_cuda=True, requires_grad=False)
 canny_operator.to(device)
 
-def pgd_attack(model, images, labels, eps=8 /255, alpha=2 / 255, iters=10):
+
+def pgd_attack(model, images, labels, eps=8 / 255, alpha=2 / 255, iters=10):
     images = images.to(device)
     labels = labels.to(device)
     loss = nn.CrossEntropyLoss()
@@ -146,7 +147,7 @@ def test(epoch):
     if acc > best_acc:
         print('| Saving Best model...\t\t\tTop1 = %.2f%%' % (acc))
         state = {
-            'net':net.module if use_cuda else net,
+            'net': net.module if use_cuda else net,
             'acc': acc,
             'epoch': epoch,
         }
@@ -164,8 +165,8 @@ if use_cuda:
     net = torch.nn.DataParallel(net, device_ids=range(torch.cuda.device_count()))
     cudnn.benchmark = True
 elapsed_time = 0
-tb = SummaryWriter('wrn-edge-pgd10')
-for epoch in range(start_epoch, start_epoch + 50):
+tb = SummaryWriter('wrn-edge-pgd10-2')
+for epoch in range(start_epoch, start_epoch + 100):
     start_time = time.time()
     train(epoch, tb)
     test(epoch)
