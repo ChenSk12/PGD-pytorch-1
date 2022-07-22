@@ -6,7 +6,6 @@ import torch
 import torch.utils.data as Data
 
 import torchvision.utils
-from pytorch_pretrained_vit import ViT
 from torch import optim
 from torch.backends import cudnn
 from torch.utils.tensorboard import SummaryWriter
@@ -14,7 +13,6 @@ import torchvision.transforms as transforms
 import config as cf
 import time
 
-from canny_net import CannyNet
 from networks import *
 from tqdm import tqdm
 
@@ -45,7 +43,7 @@ transform_test = transforms.Compose([
 # net = ViT('B_16_imagenet1k', pretrained=True, image_size=224, num_classes=10)
 # net = Wide_ResNet(args.depth, args.widen_factor, args.dropout, 10)
 net = Wide_ResNet_Edge(args.depth, args.widen_factor, args.dropout, 10)
-file_name = 'wide-resnet-edge-layer2-34x10'
+file_name = 'wide-resnet-edge-concat-conv'
 
 use_cuda = torch.cuda.is_available()
 best_acc = 0
@@ -159,13 +157,12 @@ def test(epoch):
         torch.save(state, save_point + file_name + '.t7')
         best_acc = acc
 
-
 if use_cuda:
     net.cuda()
     net = torch.nn.DataParallel(net, device_ids=range(torch.cuda.device_count()))
     cudnn.benchmark = True
 elapsed_time = 0
-tb = SummaryWriter('wrn-edge-pgd10-2')
+tb = SummaryWriter('wrn-edge-pgd10-concat-conv')
 for epoch in range(start_epoch, start_epoch + 100):
     start_time = time.time()
     train(epoch, tb)

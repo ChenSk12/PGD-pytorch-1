@@ -29,17 +29,17 @@ use_cuda = True
 device = torch.device("cuda" if use_cuda else "cpu")
 
 transform_train = transforms.Compose([
-    transforms.RandomCrop(32, padding=4),
+    # transforms.RandomCrop(32, padding=4),
     # transforms.Resize(224),
-    transforms.RandomHorizontalFlip(),
+    # transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
-    transforms.Normalize(cf.mean[args.dataset], cf.std[args.dataset]),
+    # transforms.Normalize(cf.mean[args.dataset], cf.std[args.dataset]),
 ]) # meanstd transformation
 
 transform_test = transforms.Compose([
     # transforms.Resize(224),
     transforms.ToTensor(),
-    transforms.Normalize(cf.mean[args.dataset], cf.std[args.dataset]),
+    # transforms.Normalize(cf.mean[args.dataset], cf.std[args.dataset]),
 ])
 start_epoch, num_epochs, batch_size, optim_type = cf.start_epoch, cf.num_epochs, cf.batch_size, cf.optim_type
 num_classes = 10
@@ -91,7 +91,7 @@ def getNetwork(args):
 _, file_name = getNetwork(args)
 # checkpoint = torch.load('./checkpoint/'+args.dataset+os.sep+file_name)
 # checkpoint = torch.load('./checkpoint/cifar10/vit-16-pretrained.t7')
-checkpoint = torch.load('./checkpoint/cifar10/wide-resnet-edge-layer3-34x10.t7')
+checkpoint = torch.load('./checkpoint/cifar10/wide-resnet-edge-concat-conv.t7')
 # checkpoint = torch.load('./checkpoint/cifar10/deit-16-pretrained.t7')
 model = checkpoint['net']
 
